@@ -1,5 +1,51 @@
-__pycache__
-storage
+# Secrets
 .env
-output
-.ui/
+.env.*
+!.env.example
+src/.env
+src/.env.*
+!src/.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime
+.llama_deploy/
+llama_deploy/
+apiserver.log
+*.pid
+*.log
+*.tmp
+
+# Generated index
+src/storage/
+
+# Knowledge-base data
+ui/data/*
+!ui/data/.gitkeep
+!ui/data/README.md
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

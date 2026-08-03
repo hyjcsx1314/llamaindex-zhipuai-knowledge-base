@@ -20,16 +20,28 @@ def create_workflow() -> AgentWorkflow:
     # Create a query tool with citations enabled
     query_tool = enable_citation(get_query_engine_tool(index=index))
 
+    # Return the query engine result directly.
+    # This avoids a second LLM turn after the tool call, which is currently
+    # incompatible with the ZhipuAI function-calling response in this project.
+    query_tool.metadata.return_direct = False
+
     # Define the system prompt for the agent
     # Append the citation system prompt to the system prompt
     system_prompt = """You are a helpful assistant"""
     system_prompt += CITATION_SYSTEM_PROMPT
 
-    return AgentWorkflow.from_tools_or_functions(
+    workflow = AgentWorkflow.from_tools_or_functions(
         tools_or_functions=[query_tool],
         llm=Settings.llm,
         system_prompt=system_prompt,
     )
+
+    # 智谱 ZhipuAI 流式工具调用目前存在兼容问题，
+    # 改用非流式 Function Calling。
+    for agent in workflow.agents.values():
+        agent.streaming = True
+
+    return workflow
 
 
 workflow = create_workflow()

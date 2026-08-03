@@ -1,113 +1,181 @@
-# LlamaIndex Workflow Example
+# AI Knowledge Base
 
-This is a [LlamaIndex](https://www.llamaindex.ai/) project that using [Workflows](https://docs.llamaindex.ai/en/stable/understanding/workflows/) deployed with [LlamaDeploy](https://github.com/run-llama/llama_deploy).
+基于 **LlamaIndex + 智谱 GLM + LlamaDeploy UI** 的 PDF / 文本文档知识库问答系统。
 
-LlamaDeploy is a system for deploying and managing LlamaIndex workflows, while LlamaIndexServer provides a pre-built TypeScript server with an integrated chat UI that can connect directly to LlamaDeploy deployments. This example shows how you can quickly set up a complete chat application by combining these two technologies/
+系统会先把文档解析、切分并建立向量索引；用户在网页界面提问时，Agent 调用知识库检索工具，智谱模型根据检索结果生成回答，并展示引用来源。
 
-## Prerequisites
+## 功能
 
-If you haven't installed uv, you can follow the instructions [here](https://docs.astral.sh/uv/getting-started/installation/) to install it.
+- PDF / 文本文档索引
+- 智谱 `embedding-3` 向量化
+- 智谱 GLM 回答生成
+- `AgentWorkflow` 工具调用
+- 流式回答
+- 文档引用与来源展示
+- 本地 Web UI
+- 工具调用异常兜底
 
-You can configure [LLM model](https://docs.llamaindex.ai/en/stable/module_guides/models/llms) and [embedding model](https://docs.llamaindex.ai/en/stable/module_guides/models/embeddings) in [src/settings.py](src/settings.py).
+## 工作流程
 
-Please setup their API keys in the `src/.env` file.
+```text
+PDF / 文本
+  ↓
+文档解析与切分
+  ↓
+embedding-3 生成向量
+  ↓
+保存到 src/storage
+  ↓
+用户提问
+  ↓
+Agent 调用 query_index
+  ↓
+检索相关文档片段
+  ↓
+智谱 GLM 生成回答
+  ↓
+UI 展示答案和来源
+```
 
-## Installation
+## 项目结构
 
-Both the SDK and the CLI are part of the LlamaDeploy Python package. To install, just run:
+```text
+ai-knowledge-base/
+├─ src/
+│  ├─ settings.py
+│  ├─ workflow.py
+│  ├─ query.py
+│  ├─ index.py
+│  ├─ generate.py
+│  ├─ citation.py
+│  └─ .env
+├─ ui/
+│  └─ data/
+├─ llama_deploy.yml
+├─ pyproject.toml
+└─ README.md
+```
 
-```bash
+## 环境
+
+当前项目主要在以下环境中验证：
+
+- Windows
+- Python 3.11
+- `uv`
+- Node.js
+- pnpm 9
+- LlamaDeploy 0.9.2
+- LlamaIndex Core 0.13.6
+- LlamaIndex Workflows 1.3.0
+- `llama-index-llms-zhipuai` 0.4.1
+
+> 本项目依赖一组已验证的兼容版本。不要在未测试的情况下全面升级 LlamaIndex 相关依赖。
+
+## 安装
+
+```powershell
+git clone <YOUR_REPOSITORY_URL>
+cd ai-knowledge-base
 uv sync
 ```
 
-If you don't have uv installed, you can follow the instructions [here](https://docs.astral.sh/uv/getting-started/installation/).
+## 配置
 
-## Generate Index
+```powershell
+Copy-Item .\src\.env.example .\src\.env
+```
 
-Generate the embeddings of the documents in the `./data` directory:
+编辑 `src/.env`：
 
-```shell
+```dotenv
+ZHIPU_API_KEY=your_api_key
+MODEL=glm-4-flash
+EMBEDDING_MODEL=embedding-3
+EMBEDDING_DIMENSIONS=1024
+TEMPERATURE=0.2
+MAX_TOKENS=4096
+EMBEDDING_TIMEOUT=60
+```
+
+不要提交真实 API Key。
+
+## 添加知识库文档
+
+将有权使用的 PDF 或文本放入：
+
+```text
+ui/data/
+```
+
+生成索引：
+
+```powershell
 uv run generate
 ```
 
-## Running the Deployment
+## 启动
 
-At this point we have all we need to run this deployment. Ideally, we would have the API server already running
-somewhere in the cloud, but to get started let's start an instance locally. Run the following python script
-from a shell:
+窗口 1：
 
-```
-$ uv run -m llama_deploy.apiserver
-INFO:     Started server process [10842]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
+```powershell
+uv run -m llama_deploy.apiserver
 ```
 
-From another shell, use the CLI, `llamactl`, to create the deployment:
+窗口 2：
 
-```
-$ uv run llamactl deploy llama_deploy.yml
-Deployment successful: chat
-```
-
-## UI Interface
-
-LlamaDeploy will serve the UI through the apiserver. Point the browser to [http://localhost:4501/deployments/chat/ui](http://localhost:4501/deployments/chat/ui) to interact with your deployment through a user-friendly interface.
-
-## API endpoints
-
-You can find all the endpoints in the [API documentation](http://localhost:4501/docs). To get started, you can try the following endpoints:
-
-Create a new task:
-
-```bash
-curl -X POST 'http://localhost:4501/deployments/chat/tasks/create' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "input": "{\"user_msg\":\"Hello\",\"chat_history\":[]}",
-    "service_id": "workflow"
-  }'
+```powershell
+uv run llamactl deploy .\llama_deploy.yml
 ```
 
-Stream events:
+打开：
 
-```bash
-curl 'http://localhost:4501/deployments/chat/tasks/0b411be6-005d-43f0-9b6b-6a0017f08002/events?session_id=dd36442c-45ca-4eaa-8d75-b4e6dad1a83e&raw_event=true' \
-  -H 'Content-Type: application/json'
+```text
+http://127.0.0.1:4501/deployments/chat/ui
 ```
 
-Note that the task_id and session_id are returned when creating a new task.
+## 已处理的兼容问题
 
-## Use Case
+### 智谱流式工具调用
 
-We have prepared an [example workflow](./src/workflow.py) for the agentic RAG use case, where you can ask questions about the example documents in the [./data](./data) directory.
-To update the workflow, you can modify the code in [`src/workflow.py`](src/workflow.py).
+`llama-index-llms-zhipuai==0.4.1` 的原始流式实现可能在 `delta.content is None` 时跳过包含 `tool_calls` 的分片。项目中的 `SafeZhipuAI` 会保留并合并工具名称和 JSON 参数，同时对工具调用失败返回明确错误。
 
-## Customize the UI
+### Windows pnpm
 
-The UI is served by LLamaIndexServer package, you can configure the UI by modifying the `uiConfig` in the [ui/index.ts](ui/index.ts) file.
+LlamaDeploy 0.9.2 在 Windows 上可能需要把启动命令从 `pnpm` 改为 `pnpm.cmd`。该修改位于 `.venv`，重建虚拟环境后可能需要重新应用。
 
-The following are the available options:
+## 安全说明
 
-- `starterQuestions`: Predefined questions for chat interface
-- `componentsDir`: Directory for custom event components
-- `layoutDir`: Directory for custom layout components
-- `llamaDeploy`: The LlamaDeploy configration (deployment name and workflow name that defined in the [llama_deploy.yml](llama_deploy.yml) file)
+提交前确认：
 
-## LlamaCloud Integration
+- `src/.env` 未被 Git 跟踪
+- API Key 未出现在源码、日志或提交历史中
+- `.venv`、`node_modules`、临时部署目录未提交
+- 仅提交你有权公开的 PDF 和数据
+- 日志中没有敏感业务信息
 
-You can enable LlamaCloud integration by setting the `llamaCloud` option in the [ui/index.ts](ui/index.ts) file.
+```powershell
+git status
+git diff --cached
+git ls-files | Select-String "\.env$"
+```
 
-The following are the available options:
+如果真实密钥曾经提交，应立即在智谱平台撤销并重新生成。
 
-- `outputDir`: The directory for LlamaCloud output
+## 后续计划
 
-## Learn More
+- [ ] 多文档批量导入
+- [ ] 文档增量索引
+- [ ] 页码与原文定位
+- [ ] OCR 和扫描 PDF 支持
+- [ ] 混合检索与重排序
+- [ ] 强制知识库问题先检索
+- [ ] 用户与文档权限控制
+- [ ] 自动化测试
+- [ ] Docker 部署
+- [ ] 迁移到仍在维护的工作流服务方案
+- [ ] 工具调用监控与日志
 
-- [LlamaIndex Documentation](https://docs.llamaindex.ai) - learn about LlamaIndex.
-- [Workflows Introduction](https://docs.llamaindex.ai/en/stable/understanding/workflows/) - learn about LlamaIndex workflows.
-- [LlamaDeploy GitHub Repository](https://github.com/run-llama/llama_deploy)
-- [Chat-UI Documentation](https://ts.llamaindex.ai/docs/chat-ui)
+## License
 
-You can check out [the LlamaIndex GitHub repository](https://github.com/run-llama/llama_index) - your feedback and contributions are welcome!
+请根据项目用途选择许可证。尚未确定前，不要默认添加许可证。
